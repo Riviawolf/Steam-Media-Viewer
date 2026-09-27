@@ -1,0 +1,884 @@
+/* Dark, Steam-adjacent, but its own thing. One accent, generous spacing. */
+
+:root {
+  --bg: #0f1419;
+  --bg-2: #151c23;
+  --bg-3: #1b242d;
+  --bg-4: #232f3a;
+  --line: #2a3742;
+  --line-soft: #202b34;
+  --text: #e6edf3;
+  --text-dim: #93a4b3;
+  --text-faint: #6b7d8c;
+  --accent: #4aa3ff;
+  --accent-dim: #1f6fd0;
+  --warn: #f0b429;
+  --err: #ff6b6b;
+  --radius: 10px;
+  --radius-sm: 7px;
+  --side-w: 300px;
+  --gutter: 12px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+
+  /* Native system UI stack, no webfont. */
+  --font: "Segoe UI Variable Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Cascadia Mono", Consolas, monospace;
+
+  /* Height of the window drag strip; matches TITLEBAR_HEIGHT in main.js. */
+  --titlebar-h: 40px;
+  /* Room the Windows caption buttons need at the top right. */
+  --caption-w: 148px;
+  /* Preview card size multiplier, driven by the Size slider. 1 = default. */
+  --card-scale: 1;
+  /* Both grids share this base so a given notch means the same size in each. */
+  --card-base: 268px;
+  --card-min: calc(var(--card-base) * var(--card-scale));
+  --card-gap: calc(13px * var(--card-scale));
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 var(--font);
+  overflow: hidden;
+}
+
+.hidden { display: none !important; }
+.muted { color: var(--text-dim); }
+.small { font-size: 12px; }
+
+svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Holds the shared <mask> only. Must be styled here, not with a style
+   attribute: the page's CSP blocks inline styles, which would leave this as a
+   static inline element taking up a line box at the top of the window. */
+.svg-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+#app {
+  display: grid;
+  grid-template-columns: var(--side-w) 1fr;
+  grid-template-rows: var(--titlebar-h) minmax(0, 1fr);
+  height: 100%;
+}
+
+/* Spans both columns; the OS caption buttons sit over its right end. Same
+   background as the content beneath so it reads as one surface, not a chrome
+   bar stacked on the app. */
+#titlebar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 var(--caption-w) 0 var(--gutter);
+  background: var(--bg);
+  -webkit-app-region: drag;
+}
+
+#titlebar button,
+#titlebar select,
+#titlebar input { -webkit-app-region: no-drag; }
+
+.tb-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+
+#sidebar, #content { grid-row: 2; min-height: 0; }
+
+/* ---------- sidebar ---------- */
+
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-2);
+  border-right: 1px solid var(--line-soft);
+}
+
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+/* Both marks are the masked Steam glyph: the disc paints in the current colour
+   and the cut-outs let the background through. No stroke involved, so the
+   global svg rule must not apply. */
+.brand-mark,
+.steam-mark {
+  flex: none;
+  fill: none;
+  stroke: none;
+}
+
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  color: var(--text);
+}
+
+.steam-mark {
+  width: 16px;
+  height: 16px;
+  color: inherit;
+}
+
+.brand-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+/* combined view entry, pinned above the search box */
+.all-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - var(--gutter) * 2);
+  margin: 10px var(--gutter) 8px;
+  padding: 8px 9px;
+  text-align: left;
+  color: inherit;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+}
+
+.all-row:hover { background: var(--bg-4); }
+
+.all-row.active {
+  background: var(--bg-4);
+  border-color: var(--accent-dim);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.ar-icon { display: grid; place-items: center; color: var(--accent); flex: none; }
+.ar-icon svg { width: 17px; height: 17px; }
+.ar-body { min-width: 0; }
+.ar-title { display: block; font-weight: 600; }
+.ar-sub { display: block; font-size: 11.5px; color: var(--text-faint); }
+
+/* Per-drive breakdown, so it's obvious where the library actually lives. */
+.drive-summary {
+  margin: 0 var(--gutter) 9px;
+  padding: 9px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+/* Sentence case, no tracking: small uppercase tracked labels read as dashboard
+   filler and were the thing that looked off. */
+.ds-label {
+  margin-bottom: 5px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.ds-row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 1px 0;
+  font-size: 11.5px;
+}
+
+.ds-drive {
+  flex: none;
+  min-width: 20px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.ds-counts { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+/* Library-wide drive filter, above the game search. */
+.side-drive {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 0 var(--gutter) 9px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.side-drive select { width: 100%; padding: 5px 8px; font-size: 12.5px; color: var(--text); }
+
+.side-search { padding: 0 var(--gutter) 8px; }
+
+.side-meta {
+  padding: 0 calc(var(--gutter) + 2px) 8px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.side-search input,
+.path-row input,
+select,
+input[type="number"] {
+  width: 100%;
+  padding: 7px 10px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  outline: none;
+}
+
+.side-search input:focus,
+.path-row input:focus,
+select:focus,
+input[type="number"]:focus {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 0 2px rgba(74, 163, 255, 0.16);
+}
+
+.game-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--gutter);
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-4) transparent;
+}
+
+.game-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 7px 8px;
+  margin-bottom: 2px;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+}
+
+.game-row:hover { background: var(--bg-3); }
+
+.game-row.active {
+  background: var(--bg-4);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.game-row .art {
+  position: relative;
+  width: 56px;
+  height: 27px;
+  overflow: hidden;
+  background: var(--bg-4);
+  border-radius: 4px;
+  flex: none;
+}
+
+.game-row .art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Fallback tile when a game has no artwork anywhere. */
+.game-row .art.placeholder::after {
+  content: attr(data-initials);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: 0.5px;
+}
+
+.game-row .info { min-width: 0; }
+
+.game-row .title {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 550;
+}
+
+.game-row .sub {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.game-row.active .sub { color: var(--text-dim); }
+
+.game-list { padding-bottom: 14px; }
+
+/* ---------- buttons ---------- */
+
+.icon-btn,
+.ghost-btn,
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+}
+
+.icon-btn { padding: 6px; }
+.ghost-btn { padding: 6px 11px; }
+.ghost-btn.small { padding: 4px 9px; font-size: 12.5px; }
+
+.icon-btn:hover,
+.ghost-btn:hover { background: var(--bg-4); border-color: #35465400; border-color: #354654; }
+
+.primary-btn {
+  padding: 7px 16px;
+  font-weight: 600;
+  color: #04121f;
+  background: var(--accent);
+  border-color: transparent;
+}
+
+.primary-btn:hover { background: #63b1ff; }
+
+button:disabled { opacity: 0.45; cursor: default; }
+
+/* ---------- content ---------- */
+
+#content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.banner {
+  padding: 8px 18px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.banner.warn { color: #ffdd9e; background: #2a2416; border-bottom-color: #3d3520; }
+
+.empty { display: grid; place-items: center; flex: 1; }
+.empty-inner { max-width: 420px; text-align: center; }
+.empty-inner h1 { margin: 0 0 8px; font-size: 19px; font-weight: 650; }
+.empty-inner p { margin: 0 0 16px; color: var(--text-dim); }
+
+#game-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.game-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 20px 10px;
+}
+
+.gh-art {
+  width: 132px;
+  height: 62px;
+  overflow: hidden;
+  background: var(--bg-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+
+.gh-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gh-meta { min-width: 0; }
+
+.gh-meta h1 {
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.gh-meta p { margin: 2px 0 0; font-size: 12.5px; }
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 13px;
+  color: var(--text-dim);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 550;
+}
+
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+.pill {
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--text-dim);
+  background: var(--bg-3);
+  border-radius: 999px;
+}
+
+.tab.active .pill { color: var(--text); background: var(--bg-4); }
+
+.tabs-spacer { flex: 1; }
+
+.filters { display: flex; align-items: center; gap: 13px; flex-wrap: wrap; padding: 4px 0; }
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.filter-row select { width: auto; padding: 4px 8px; font-size: 12.5px; color: var(--text); }
+
+/* Notched preview-size slider; the datalist draws the tick marks, which take
+   their colour from the input's own `color`. */
+.filter-row input[type="range"] {
+  width: 104px;
+  margin: 0;
+  padding: 0;
+  color: var(--text-dim);
+  accent-color: var(--accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.filter-row input[type="range"]::-webkit-slider-runnable-track { height: 4px; }
+
+.filter-note {
+  margin: 0;
+  padding: 7px 20px 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.pane {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 20px 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-4) transparent;
+}
+
+.pane-empty { color: var(--text-faint); text-align: center; padding: 40px 0; }
+
+/* ---------- recordings ---------- */
+
+.rec-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
+  gap: var(--card-gap);
+}
+
+.rec-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  text-align: left;
+  color: inherit;
+  background: var(--bg-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.12s, transform 0.12s;
+}
+
+.rec-card:hover {
+  border-color: var(--accent-dim);
+  transform: translateY(-1px);
+}
+
+.rec-card.unplayable { cursor: default; opacity: 0.6; }
+.rec-card.unplayable:hover { border-color: var(--line-soft); transform: none; }
+
+.rec-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #0a0e12;
+  overflow: hidden;
+}
+
+.rec-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.rec-thumb .badge {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: rgba(6, 10, 14, 0.82);
+  border-radius: 4px;
+}
+
+.rec-thumb .badge.left { right: auto; left: 7px; }
+
+/* which drive an item came from, when the library spans more than one */
+.badge.drive {
+  top: 7px;
+  right: 7px;
+  bottom: auto;
+  color: #cfe6ff;
+  background: rgba(20, 52, 86, 0.9);
+  border: 1px solid rgba(110, 175, 255, 0.35);
+}
+
+.shot-card .badge.drive { position: absolute; padding: 2px 6px; font-size: 11px; font-weight: 650; border-radius: 4px; }
+
+/* game label on cards in the All media view */
+.card-game {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 11px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.cg-art {
+  width: 34px;
+  height: 16px;
+  flex: none;
+  overflow: hidden;
+  background: var(--bg-4);
+  border-radius: 3px;
+}
+
+.cg-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.cg-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.rec-thumb .play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  background: rgba(8, 14, 20, 0.34);
+  transition: opacity 0.12s;
+}
+
+.rec-card:hover .rec-thumb .play { opacity: 1; }
+
+.rec-thumb .play span {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  background: rgba(10, 16, 22, 0.78);
+  border: 1.5px solid rgba(255, 255, 255, 0.72);
+  border-radius: 50%;
+}
+
+.rec-thumb .play svg { width: 20px; height: 20px; fill: #fff; stroke: none; margin-left: 2px; }
+
+.rec-thumb.noimg { display: grid; place-items: center; color: var(--text-faint); font-size: 12px; }
+
+.rec-body { padding: 9px 11px 11px; }
+.rec-when { font-weight: 550; }
+.rec-detail { margin-top: 2px; font-size: 11.5px; color: var(--text-faint); }
+
+/* ---------- screenshots ---------- */
+
+.shot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min), 1fr));
+  gap: var(--card-gap);
+}
+
+.shot-card {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  background: var(--bg-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.12s;
+}
+
+.shot-card:hover { border-color: var(--accent-dim); transform: translateY(-1px); }
+
+/* The image and its overlays; the game label sits above this. */
+.shot-frame {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #0a0e12;
+}
+
+/* Scoped to the frame so it never applies to the game capsule in the header. */
+.shot-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+
+.shot-frame img.loaded { opacity: 1; }
+
+.shot-card .cap {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 12px 8px 5px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #dfe8f0;
+  background: linear-gradient(transparent, rgba(4, 8, 12, 0.88));
+  text-align: left;
+}
+
+/* ---------- overlays ---------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: rgba(6, 10, 14, 0.985);
+  backdrop-filter: blur(6px);
+}
+
+.overlay-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex: none;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.ob-title { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
+.ob-title strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ob-title .muted { font-size: 12.5px; white-space: nowrap; }
+.ob-actions { display: flex; align-items: center; gap: 7px; flex: none; }
+
+.overlay-body {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
+  padding: 14px;
+}
+
+/* Let the media's own aspect ratio drive the size, capped by the box. Giving
+   these an explicit 100% width/height instead makes a centred flex/grid item
+   resolve its height against a content-sized track and come out too small. */
+#player,
+#sh-img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background: #000;
+  border-radius: 6px;
+}
+
+.prep {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 12, 17, 0.9);
+}
+
+.prep-inner { width: min(440px, 80vw); text-align: center; }
+.prep-inner p { margin: 0 0 10px; }
+.err-title { color: var(--err); font-weight: 600; }
+
+.bar {
+  height: 5px;
+  overflow: hidden;
+  background: var(--bg-4);
+  border-radius: 999px;
+}
+
+.bar-fill {
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  border-radius: 999px;
+  transition: width 0.15s;
+}
+
+/* ---------- settings sheet ---------- */
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(620px, 94vw);
+  max-height: 88vh;
+  margin: auto;
+  overflow: hidden;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.sheet-head,
+.sheet-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 18px;
+}
+
+.sheet-head { border-bottom: 1px solid var(--line-soft); }
+.sheet-head h2 { margin: 0; font-size: 16px; font-weight: 650; }
+.sheet-foot { border-top: 1px solid var(--line-soft); }
+
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 6px 18px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-4) transparent;
+}
+
+.field-group { padding: 14px 0; border-bottom: 1px solid var(--line-soft); }
+.field-group:last-of-type { border-bottom: 0; }
+.field-group h3 { margin: 0 0 9px; font-size: 13px; font-weight: 650; letter-spacing: 0.2px; }
+
+.radio-row { display: flex; gap: 16px; margin-bottom: 8px; }
+.radio-row label,
+.check-row { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+
+.path-list { display: flex; flex-direction: column; gap: 7px; }
+.path-list .add-folder { align-self: flex-start; }
+
+.path-row { display: flex; align-items: center; gap: 8px; }
+
+/* Reads as information, not an editable field, when showing Steam's own path. */
+.path-row input.showing-default {
+  color: var(--text-dim);
+  background: var(--bg-2);
+  border-style: dashed;
+}
+.path-row input[type="number"] { width: 78px; }
+
+.inline-label { display: flex; align-items: center; gap: 7px; white-space: nowrap; color: var(--text-dim); }
+
+/* Detected paths can be very long; wrap them rather than widening the sheet. */
+.hint {
+  margin: 7px 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+}
+
+.suggestion {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  color: var(--text-dim);
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.suggestion span { flex: 1; min-width: 180px; }
+.suggestion button { flex: none; }
+
+code {
+  padding: 1px 4px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--bg);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg-4); border: 2px solid var(--bg-2); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #2e3d4a; }
+
+.version-line {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}

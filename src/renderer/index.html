@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src file: data:; media-src file:; style-src 'self'; script-src 'self'; font-src 'self';">
+<title>Steam Media Viewer</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- The Steam mark, defined once and reused by every instance below. The glyph
+     is cut out of the disc with a mask, so a mark painted in any colour shows
+     the page through the cut-outs. Geometry matches build/icon.svg. -->
+<svg class="svg-defs" aria-hidden="true">
+  <defs>
+    <mask id="steamGlyph" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+      <circle cx="128" cy="128" r="102" fill="#fff"/>
+      <polygon points="148.1,81.2 182.5,114.6 113.4,178.5 86.2,152.1" fill="#000"/>
+      <polygon points="105.2,147.1 94.4,183.5 26.2,145.9 27.6,141.1" fill="#000"/>
+      <circle cx="165.3" cy="97.9" r="32.8" fill="#000"/>
+      <circle cx="165.3" cy="97.9" r="23.7" fill="#fff"/>
+      <circle cx="165.3" cy="97.9" r="17.3" fill="#000"/>
+      <circle cx="99.8" cy="165.3" r="25.5" fill="#000"/>
+      <circle cx="99.8" cy="165.3" r="15.5" fill="#fff"/>
+    </mask>
+  </defs>
+</svg>
+
+<div id="app">
+
+  <!-- Full-width title bar: brand on the left, app actions on the right, and
+       the OS caption buttons overlaid at the far right. Also the drag strip. -->
+  <header id="titlebar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 256 256" aria-hidden="true">
+        <rect width="256" height="256" fill="currentColor" mask="url(#steamGlyph)"/>
+      </svg>
+      <span class="brand-text">Steam Media Viewer</span>
+    </div>
+
+    <div class="tb-actions">
+      <button id="btn-refresh" class="ghost-btn small">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v4h-4"/></svg>
+        <span>Refresh</span>
+      </button>
+      <button id="btn-settings" class="ghost-btn small" title="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"/><path d="M19.4 13a7.7 7.7 0 0 0 0-2l2-1.5-2-3.4-2.3 1a7.7 7.7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7.7 7.7 0 0 0-1.7 1l-2.3-1-2 3.4L4.6 11a7.7 7.7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1a7.7 7.7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7.7 7.7 0 0 0 1.7-1l2.3 1 2-3.4Z"/></svg>
+        <span>Settings</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Left: every game with media -->
+  <aside id="sidebar">
+
+    <!-- Everything in one list, newest first, labelled by game. The quickest way
+         to see what a folder change actually pulled in. -->
+    <button id="all-media" class="all-row">
+      <span class="ar-icon">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+      </span>
+      <span class="ar-body">
+        <span class="ar-title">All Media</span>
+        <span class="ar-sub" id="all-sub"></span>
+      </span>
+    </button>
+
+    <div id="drive-summary" class="drive-summary hidden"></div>
+
+    <!-- Narrows the whole library, including which games are listed. Only
+         appears when media was found on more than one drive. -->
+    <label class="side-drive hidden" id="drive-wrap">
+      <span>Drive</span>
+      <select id="drive-filter"><option value="">All drives</option></select>
+    </label>
+
+    <div class="side-search">
+      <input id="game-filter" type="search" placeholder="Filter games…" autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="side-meta"><span id="game-count"></span></div>
+
+    <div id="game-list" class="game-list" role="listbox" aria-label="Games"></div>
+  </aside>
+
+  <!-- Right: the selected game's media -->
+  <main id="content">
+    <div id="scan-banner" class="banner hidden"></div>
+    <div id="warn-banner" class="banner warn hidden"></div>
+
+    <section id="empty-state" class="empty">
+      <div class="empty-inner">
+        <h1>No media found yet</h1>
+        <p id="empty-detail">Point the app at your recordings and screenshots folders to get started.</p>
+        <button id="btn-empty-settings" class="primary-btn">Open settings</button>
+      </div>
+    </section>
+
+    <section id="game-view" class="hidden">
+      <header id="game-header" class="game-head">
+        <div class="gh-art" id="gh-art"><img id="gh-img" alt=""></div>
+        <div class="gh-meta">
+          <h1 id="gh-name"></h1>
+          <p id="gh-sub" class="muted"></p>
+        </div>
+        <div class="gh-actions">
+          <button id="btn-store" class="ghost-btn small" title="Open the Steam store page">
+            <svg class="steam-mark" viewBox="0 0 256 256" aria-hidden="true">
+              <rect width="256" height="256" fill="currentColor" mask="url(#steamGlyph)"/>
+            </svg>
+            <span>Store Page</span>
+          </button>
+        </div>
+      </header>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="recordings" role="tab" aria-selected="true">
+          Recordings <span class="pill" id="tab-count-rec">0</span>
+        </button>
+        <button class="tab" data-tab="screenshots" role="tab" aria-selected="false">
+          Screenshots <span class="pill" id="tab-count-shot">0</span>
+        </button>
+        <div class="tabs-spacer"></div>
+        <!-- Filters for whichever view is open. Drive only appears when the
+             library actually spans more than one drive. -->
+        <div class="filters">
+          <label class="filter-row" title="Preview size">
+            <span>Size</span>
+            <input id="size-slider" type="range" min="0" max="4" step="1" list="size-notches"
+                   aria-label="Preview size">
+            <datalist id="size-notches">
+              <option value="0"></option>
+              <option value="1"></option>
+              <option value="2"></option>
+              <option value="3"></option>
+              <option value="4"></option>
+            </datalist>
+          </label>
+          <label class="filter-row">
+            <span>Date</span>
+            <select id="date-filter">
+              <option value="all">Any time</option>
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="365">Last year</option>
+            </select>
+          </label>
+          <label class="filter-row">
+            <span>Sort</span>
+            <select id="sort-order">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </label>
+        </div>
+      </nav>
+
+      <p id="filter-note" class="filter-note hidden"></p>
+
+      <div id="pane-recordings" class="pane">
+        <div id="rec-list" class="rec-list"></div>
+        <p id="rec-empty" class="pane-empty hidden">No recordings for this game.</p>
+      </div>
+
+      <div id="pane-screenshots" class="pane hidden">
+        <div id="shot-grid" class="shot-grid"></div>
+        <p id="shot-empty" class="pane-empty hidden">No screenshots for this game.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Video player -->
+<div id="player-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Clip player">
+  <div class="overlay-bar">
+    <div class="ob-title">
+      <strong id="pl-title"></strong>
+      <span id="pl-sub" class="muted"></span>
+    </div>
+    <div class="ob-actions">
+      <button id="pl-prev" class="ghost-btn small" title="Previous clip (←)">Prev</button>
+      <button id="pl-next" class="ghost-btn small" title="Next clip (→)">Next</button>
+      <button id="pl-reveal" class="ghost-btn small" title="Show the clip folder in Explorer">Folder</button>
+      <button id="pl-export" class="ghost-btn small" title="Save a copy as MP4">Save as…</button>
+      <button id="pl-close" class="icon-btn" title="Close (Esc)" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="overlay-body">
+    <video id="player" controls preload="metadata" playsinline></video>
+
+    <div id="pl-prep" class="prep hidden">
+      <div class="prep-inner">
+        <p id="prep-label">Preparing clip…</p>
+        <div class="bar"><div id="prep-bar" class="bar-fill"></div></div>
+        <p class="muted small">Steam stores clips as streaming fragments; they're joined into one MP4 the first time you play them, then cached.</p>
+      </div>
+    </div>
+
+    <div id="pl-error" class="prep hidden">
+      <div class="prep-inner">
+        <p class="err-title">Can't play this clip</p>
+        <p id="pl-error-msg" class="muted small"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Screenshot lightbox -->
+<div id="shot-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Screenshot viewer">
+  <div class="overlay-bar">
+    <div class="ob-title">
+      <strong id="sh-title"></strong>
+      <span id="sh-sub" class="muted"></span>
+    </div>
+    <div class="ob-actions">
+      <button id="sh-prev" class="ghost-btn small" title="Previous (←)">Prev</button>
+      <button id="sh-next" class="ghost-btn small" title="Next (→)">Next</button>
+      <button id="sh-reveal" class="ghost-btn small" title="Show in Explorer">Folder</button>
+      <button id="sh-export" class="ghost-btn small" title="Save a copy">Save as…</button>
+      <button id="sh-close" class="icon-btn" title="Close (Esc)" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="overlay-body"><img id="sh-img" alt=""></div>
+</div>
+
+<!-- Settings -->
+<div id="settings-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Settings">
+  <div class="sheet">
+    <header class="sheet-head">
+      <h2>Settings</h2>
+      <button id="set-close" class="icon-btn" title="Close (Esc)" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+
+    <div class="sheet-body">
+      <section class="field-group">
+        <h3>Recordings folder</h3>
+        <div class="radio-row">
+          <label><input type="radio" name="rec-mode" value="steam"> Steam default</label>
+          <label><input type="radio" name="rec-mode" value="custom"> Custom folder</label>
+        </div>
+        <div id="rec-paths" class="path-list"></div>
+        <p class="hint" id="rec-detected"></p>
+      </section>
+
+      <section class="field-group">
+        <h3>Screenshots folder</h3>
+        <div class="radio-row">
+          <label><input type="radio" name="shot-mode" value="steam"> Steam default</label>
+          <label><input type="radio" name="shot-mode" value="custom"> Custom folder</label>
+        </div>
+        <div id="shot-paths" class="path-list"></div>
+        <p class="hint" id="shot-detected"></p>
+        <!-- Steam can also be saving uncompressed originals elsewhere; offer that
+             folder rather than quietly scanning it as well. -->
+        <p class="hint suggestion hidden" id="shot-suggestion">
+          <span id="shot-suggestion-text"></span>
+          <button id="shot-use-suggestion" class="ghost-btn small">Add this folder</button>
+        </p>
+      </section>
+
+      <section class="field-group">
+        <h3>Game names &amp; artwork</h3>
+        <label class="check-row">
+          <input id="allow-network" type="checkbox">
+          <span>Look up missing names and artwork from Steam</span>
+        </label>
+        <p class="hint">Fills in anything your Steam install does not already have. Looked up once, then cached.</p>
+      </section>
+
+      <section class="field-group">
+        <h3>ffmpeg</h3>
+        <div class="path-row">
+          <input id="ffmpeg-path" type="text" spellcheck="false" placeholder="Auto-detected from PATH">
+          <button id="ffmpeg-browse" class="ghost-btn small">Browse…</button>
+        </div>
+        <p class="hint" id="ffmpeg-status"></p>
+      </section>
+
+      <section class="field-group">
+        <h3>Cache</h3>
+        <p class="hint" id="cache-stats"></p>
+        <div class="path-row">
+          <label class="inline-label">Limit
+            <input id="cache-limit" type="number" min="1" max="500" step="1"> GB
+          </label>
+          <button id="cache-clear" class="ghost-btn small">Clear cache</button>
+        </div>
+        <p class="hint">Clips are prepared once and cached so replaying is instant. Your original files are never modified.</p>
+      </section>
+
+      <section class="field-group">
+        <h3>Updates</h3>
+        <div class="path-row">
+          <span class="version-line" id="app-version"></span>
+          <button id="check-updates" class="ghost-btn small">Check for Updates</button>
+          <button id="open-release" class="ghost-btn small hidden">Get the update</button>
+        </div>
+        <p class="hint" id="update-status"></p>
+      </section>
+    </div>
+
+    <footer class="sheet-foot">
+      <span id="set-status" class="muted small"></span>
+      <button id="set-save" class="primary-btn">Save</button>
+    </footer>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

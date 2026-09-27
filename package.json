@@ -1,0 +1,17 @@
+{
+  "name": "steam-media-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browse and play Steam game recordings and screenshots",
+  "author": "Riviawolf",
+  "license": "UNLICENSED",
+  "main": "src/main/main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Riviawolf/Steam-Media-Viewer.git"
+  },
+  "homepage": "https://github.com/Riviawolf/Steam-Media-Viewer",
+  "bugs": {
+    "url": "https://github.com/Riviawolf/Steam-Media-Viewer/issues"
+  }
+}
