@@ -298,6 +298,46 @@ app.whenReady().then(async () => {
   const savedScale = await ev(`(async () => (await window.api.getSettings()).cardScale)()`);
   check('preview size persists', savedScale === 2, `cardScale=${savedScale}`);
 
+  // --- sort by length ---
+  const durations = async () =>
+    ev(`[...document.querySelectorAll('#pane-recordings .rec-card .badge:not(.drive):not(.left)')]
+        .map(e => e.textContent.trim())
+        .map(t => { const p = t.split(':').map(Number); return p.length === 3 ? p[0]*3600 + p[1]*60 + p[2] : p[0]*60 + p[1]; })`);
+
+  const setSort = async (value) => {
+    await ev(`(() => { const s = document.querySelector('#sort-order'); s.value = '${value}'; s.dispatchEvent(new Event('change')); })()`);
+    await sleep(700);
+  };
+
+  await setSort('longest');
+  const longest = await durations();
+  await setSort('shortest');
+  const shortest = await durations();
+  await setSort('newest');
+  await sleep(400);
+
+  const descending = longest.every((d, i) => i === 0 || d <= longest[i - 1]);
+  const ascending = shortest.every((d, i) => i === 0 || d >= shortest[i - 1]);
+  check(
+    'sort by length orders clips both ways',
+    longest.length > 1 && descending && ascending && longest[0] >= shortest[0],
+    `longest starts ${longest.slice(0, 3).join('s, ')}s; shortest starts ${shortest.slice(0, 3).join('s, ')}s`,
+  );
+
+  // Screenshots have no length, so that tab must not end up scrambled.
+  await setSort('longest');
+  await ev(`document.querySelector('.tab[data-tab="screenshots"]').click()`);
+  await sleep(1500);
+  const shotOrder = await ev(`[...document.querySelectorAll('#pane-screenshots .shot-card .cap')].slice(0, 12).map(e => e.textContent)`);
+  const shotDates = shotOrder.map((t) => Date.parse(t)).filter((n) => !Number.isNaN(n));
+  check(
+    'screenshots stay in date order when sorting by length',
+    shotDates.length > 1 && shotDates.every((d, i) => i === 0 || d <= shotDates[i - 1]),
+    `${shotDates.length} captions checked`,
+  );
+  await ev(`document.querySelector('.tab[data-tab="recordings"]').click()`);
+  await setSort('newest');
+
   // --- date filter ---
   const beforeDate = await ev(`document.querySelectorAll('.rec-card').length`);
   await ev(`(() => { const d = document.querySelector('#date-filter'); d.value = '30'; d.dispatchEvent(new Event('change')); })()`);

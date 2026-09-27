@@ -301,11 +301,22 @@ function sorted(items) {
     return true;
   });
 
-  copy.sort((a, b) =>
-    state.settings.sortOrder === 'oldest'
-      ? (a.recordedAt || 0) - (b.recordedAt || 0)
-      : (b.recordedAt || 0) - (a.recordedAt || 0),
-  );
+  const order = state.settings.sortOrder;
+  const byDate = (a, b) =>
+    order === 'oldest' ? (a.recordedAt || 0) - (b.recordedAt || 0) : (b.recordedAt || 0) - (a.recordedAt || 0);
+
+  if (order === 'longest' || order === 'shortest') {
+    // Only recordings have a length. Screenshots all compare equal and fall
+    // through to the date order, so the list stays sensible on that tab.
+    copy.sort((a, b) => {
+      const da = a.duration || 0;
+      const db = b.duration || 0;
+      if (da !== db) return order === 'longest' ? db - da : da - db;
+      return (b.recordedAt || 0) - (a.recordedAt || 0);
+    });
+  } else {
+    copy.sort(byDate);
+  }
   return copy;
 }
 

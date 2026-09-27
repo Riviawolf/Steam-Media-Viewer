@@ -66,7 +66,7 @@ function coerce(raw) {
   if (typeof raw.allowNetwork === 'boolean') out.allowNetwork = raw.allowNetwork;
   if (Number.isFinite(raw.maxCacheGB)) out.maxCacheGB = Math.max(1, Math.min(500, raw.maxCacheGB));
   if (Number.isFinite(raw.thumbnailSize)) out.thumbnailSize = Math.max(160, Math.min(1280, raw.thumbnailSize));
-  if (raw.sortOrder === 'oldest' || raw.sortOrder === 'newest') out.sortOrder = raw.sortOrder;
+  if (['newest', 'oldest', 'longest', 'shortest'].includes(raw.sortOrder)) out.sortOrder = raw.sortOrder;
   if (Number.isInteger(raw.cardScale)) out.cardScale = Math.max(0, Math.min(4, raw.cardScale));
   return out;
 }

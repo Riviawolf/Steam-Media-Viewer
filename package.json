@@ -1,6 +1,6 @@
 {
   "name": "steam-media-viewer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Browse and play Steam game recordings and screenshots",
   "author": "Riviawolf",
@@ -45,14 +45,18 @@
       {
         "from": "vendor/ffmpeg",
         "to": "ffmpeg",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.ico",
