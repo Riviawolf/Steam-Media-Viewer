@@ -230,6 +230,35 @@
   <div class="overlay-body"><img id="sh-img" alt=""></div>
 </div>
 
+<!-- Update prompt, shown on launch when a newer release exists -->
+<div id="update-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Update available">
+  <div class="sheet update-sheet">
+    <header class="sheet-head">
+      <h2>Update Available</h2>
+    </header>
+
+    <div class="update-head">
+      <p id="up-summary"></p>
+      <p id="up-current" class="muted small"></p>
+    </div>
+
+    <div class="sheet-body">
+      <h3 class="up-whats-new">What's New:</h3>
+      <div id="up-notes"></div>
+    </div>
+
+    <div id="up-progress" class="up-progress hidden">
+      <div class="bar"><div id="up-bar" class="bar-fill"></div></div>
+      <p id="up-progress-text" class="hint"></p>
+    </div>
+
+    <footer class="sheet-foot update-foot">
+      <button id="up-download" class="ghost-btn">Download</button>
+      <button id="up-later" class="ghost-btn">Later</button>
+    </footer>
+  </div>
+</div>
+
 <!-- Settings -->
 <div id="settings-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Settings">
   <div class="sheet">
@@ -283,6 +312,7 @@
           <button id="ffmpeg-browse" class="ghost-btn small">Browse…</button>
         </div>
         <p class="hint" id="ffmpeg-status"></p>
+        <p class="hint path-hint" id="ffmpeg-location"></p>
       </section>
 
       <section class="field-group">

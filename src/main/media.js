@@ -27,7 +27,25 @@ function which(cmd) {
   });
 }
 
-/** Locates ffmpeg/ffprobe: explicit override, then PATH, then common installers. */
+/**
+ * Where a bundled ffmpeg lives: next to the packaged app's resources, or in
+ * vendor/ when running from source.
+ */
+function bundledDirs() {
+  const dirs = [];
+  if (process.resourcesPath) dirs.push(path.join(process.resourcesPath, 'ffmpeg'));
+  dirs.push(path.join(__dirname, '..', '..', 'vendor', 'ffmpeg'));
+  return dirs;
+}
+
+/** True when this path is the copy shipped with the app. */
+function isBundled(ffmpegPath) {
+  if (!ffmpegPath) return false;
+  const resolved = path.resolve(ffmpegPath).toLowerCase();
+  return bundledDirs().some((dir) => resolved.startsWith(path.resolve(dir).toLowerCase()));
+}
+
+/** Locates ffmpeg/ffprobe: explicit override, then bundled, then PATH. */
 async function locateFfmpeg(override) {
   const check = async (p) => {
     if (!p) return null;
@@ -48,11 +66,10 @@ async function locateFfmpeg(override) {
     if (inDir) return inDir;
   }
 
-  // A copy shipped with the app wins over whatever is on PATH, so a packaged
-  // build behaves the same on every machine. Present only if packaging put it
-  // there (electron-builder extraResources); harmless when it did not.
-  if (process.resourcesPath) {
-    const bundled = await check(path.join(process.resourcesPath, 'ffmpeg', exe));
+  // The copy shipped with the app wins over whatever is on PATH, so a packaged
+  // build behaves the same on every machine.
+  for (const dir of bundledDirs()) {
+    const bundled = await check(path.join(dir, exe));
     if (bundled) return bundled;
   }
 
@@ -148,6 +165,13 @@ class MediaPipeline {
 
   get hasFfmpeg() {
     return Boolean(this.ffmpeg);
+  }
+
+  /** Where the ffmpeg in use came from, for the settings screen. */
+  get ffmpegSource() {
+    if (!this.ffmpeg) return 'missing';
+    if (this.ffmpegOverride) return 'custom';
+    return isBundled(this.ffmpeg) ? 'bundled' : 'system';
   }
 
   runFfmpeg(args, { onProgress, totalDuration, stdinFeeder } = {}) {
@@ -521,4 +545,4 @@ class MediaPipeline {
   }
 }
 
-module.exports = { MediaPipeline, locateFfmpeg };
+module.exports = { MediaPipeline, locateFfmpeg, isBundled };

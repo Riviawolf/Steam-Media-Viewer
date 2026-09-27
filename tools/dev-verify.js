@@ -518,6 +518,31 @@ app.whenReady().then(async () => {
     `${caption.gap}px clear, bar ${caption.barHeight}px at y=${caption.barTop}, drag=${caption.draggable}/${caption.buttonsDraggable}`,
   );
 
+  // --- ffmpeg provenance ---
+  const ffmpeg = await ev(`(async () => {
+    const lib = (await window.api.bootstrap()).library;
+    return { source: lib.ffmpegSource, path: lib.ffmpeg, has: lib.hasFfmpeg };
+  })()`);
+  check(
+    'uses the bundled ffmpeg, not one from PATH',
+    ffmpeg.has && ffmpeg.source === 'bundled' && /vendor[\\/]ffmpeg|resources[\\/]ffmpeg/i.test(ffmpeg.path),
+    `${ffmpeg.source}: ${ffmpeg.path}`,
+  );
+
+  await ev(`document.querySelector('#btn-settings').click()`);
+  await sleep(600);
+  const ffmpegUi = await ev(`(() => ({
+    status: document.querySelector('#ffmpeg-status').textContent,
+    location: document.querySelector('#ffmpeg-location').textContent,
+  }))()`);
+  check(
+    'settings says ffmpeg is bundled and where it is',
+    /Bundled with the app/.test(ffmpegUi.status) && ffmpegUi.location.length > 0,
+    `"${ffmpegUi.status}" | ${ffmpegUi.location}`,
+  );
+  await ev(`document.querySelector('#set-close').click()`);
+  await sleep(300);
+
   // --- updates ---
   const build = await ev(`(async () => await window.api.appVersion())()`);
   check(

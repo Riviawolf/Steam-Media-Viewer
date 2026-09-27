@@ -882,3 +882,56 @@ code {
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
+
+.path-hint {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* ---------- update prompt ---------- */
+
+.update-sheet { width: min(560px, 92vw); max-height: 82vh; }
+.update-sheet .sheet-head { border-bottom: 0; padding-bottom: 4px; }
+
+.update-head { padding: 0 18px 12px; }
+.update-head p { margin: 0; }
+#up-summary { font-size: 13.5px; }
+#up-current { margin-top: 2px; }
+
+.up-whats-new {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+#up-notes { padding-bottom: 4px; }
+
+.up-version {
+  margin: 16px 0 6px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.up-version:first-child { margin-top: 0; }
+
+#up-notes p {
+  margin: 0 0 7px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+#up-notes ul { margin: 0 0 8px; padding-left: 20px; }
+
+#up-notes li {
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.up-progress { padding: 10px 18px 0; }
+.up-progress .hint { margin-top: 6px; }
+
+.update-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.update-foot button { justify-content: center; padding: 8px 14px; }

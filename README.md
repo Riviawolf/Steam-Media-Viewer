@@ -5,10 +5,7 @@ left, that game's clips and screenshots on the right, with a built-in player.
 
 ## Requirements
 
-- Windows 11
-- [ffmpeg](https://ffmpeg.org/download.html) on `PATH`, or pointed at in
-  Settings. Steam clips are not video files, so ffmpeg is needed to turn them
-  into something playable.
+Windows 11. Nothing else to install: ffmpeg ships with the app.
 
 ## Install
 
@@ -18,6 +15,18 @@ It installs per user, so no admin prompt.
 
 The build is unsigned, so SmartScreen will warn on first run. Choose More info,
 then Run anyway.
+
+## ffmpeg
+
+Steam clips are not video files, so ffmpeg does the work of turning them into
+something playable. A copy is bundled in the installer, under
+`resourcesfmpeg` in the install folder, and is used in preference to any
+ffmpeg already on `PATH`. Settings shows which one is in use and can be pointed
+at a different build.
+
+The bundled binary is the LGPL build from
+[BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds). Clips are
+stream-copied rather than re-encoded, so nothing beyond LGPL is needed.
 
 ## Recordings
 
@@ -105,6 +114,10 @@ Releases are tagged `v<version>` to match `package.json`.
 ```bash
 npm run dist
 ```
+
+`npm run fetch-ffmpeg` runs first and downloads the ffmpeg binary into
+`vendor/ffmpeg` if it is not already there. It is too large to keep in the
+repository, so it is fetched at build time.
 
 Produces `dist/Steam-Media-Viewer-Setup-<version>.exe`, a per-user installer
 with shortcuts and an uninstaller. Uninstalling leaves

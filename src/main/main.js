@@ -8,12 +8,13 @@ const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const { pathToFileURL } = require('url');
+const { spawn } = require('child_process');
 
 const { Settings } = require('./settings');
 const { SteamCatalog, detectSteamDefaults } = require('./steam');
 const { scanRecordings, scanScreenshots } = require('./scanner');
 const { MediaPipeline } = require('./media');
-const { checkForUpdates, parseRepo } = require('./updater');
+const { checkForUpdates, downloadUpdate, parseRepo } = require('./updater');
 
 const pkg = require('../../package.json');
 
@@ -246,6 +247,7 @@ function librarySummary() {
     detected,
     ffmpeg: media.ffmpeg,
     hasFfmpeg: media.hasFfmpeg,
+    ffmpegSource: media.ffmpegSource,
     versions: fmtRelease(),
   };
 }
@@ -368,6 +370,43 @@ function registerIpc() {
       allowNetwork: settings.values.allowNetwork,
     }),
   );
+
+  // Downloads the installer for an update the user chose to take. The asset
+  // must be one this build's own check just returned, so a renderer cannot ask
+  // for an arbitrary URL.
+  ipcMain.handle('updates:download', async () => {
+    const result = await checkForUpdates({
+      currentVersion: appVersion(),
+      repository: pkg.repository,
+      allowNetwork: settings.values.allowNetwork,
+    });
+    if (result.status !== 'available' || !result.asset) {
+      throw new Error(result.message || 'There is no update to download.');
+    }
+
+    const destDir = path.join(app.getPath('temp'), 'steam-media-viewer-update');
+    let lastSent = 0;
+    const file = await downloadUpdate(result.asset, destDir, (fraction, received, total) => {
+      const now = Date.now();
+      if (now - lastSent < 120 && fraction < 1) return;
+      lastSent = now;
+      send('update:progress', { fraction, received, total });
+    });
+    return { ...file, version: result.latest };
+  });
+
+  // Runs the downloaded installer and steps out of its way.
+  ipcMain.handle('updates:install', async (_e, file) => {
+    const destDir = path.join(app.getPath('temp'), 'steam-media-viewer-update');
+    const resolved = path.resolve(String(file || ''));
+    // Only ever launch something from the folder the download wrote to.
+    if (path.dirname(resolved) !== path.resolve(destDir) || !/\.exe$/i.test(resolved)) return false;
+    if (!fs.existsSync(resolved)) return false;
+
+    spawn(resolved, [], { detached: true, stdio: 'ignore' }).unref();
+    setTimeout(() => app.quit(), 400);
+    return true;
+  });
 
   ipcMain.handle('cache:stats', async () => media.cacheStats());
 

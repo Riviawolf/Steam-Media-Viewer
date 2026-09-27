@@ -1,10 +1,10 @@
 {
   "name": "steam-media-viewer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Browse and play Steam game recordings and screenshots",
   "author": "Riviawolf",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "main": "src/main/main.js",
   "repository": {
     "type": "git",
@@ -13,5 +13,71 @@
   "homepage": "https://github.com/Riviawolf/Steam-Media-Viewer",
   "bugs": {
     "url": "https://github.com/Riviawolf/Steam-Media-Viewer/issues"
+  },
+  "scripts": {
+    "start": "electron .",
+    "icon": "electron tools/make-icon.js",
+    "verify": "electron tools/dev-verify.js",
+    "capture": "electron tools/dev-capture.js",
+    "fetch-ffmpeg": "node tools/fetch-ffmpeg.js",
+    "dist": "npm run fetch-ffmpeg && electron-builder --win",
+    "pack": "npm run fetch-ffmpeg && electron-builder --win --dir"
+  },
+  "devDependencies": {
+    "electron": "^38.2.2",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.steammediaviewer.app",
+    "productName": "Steam Media Viewer",
+    "copyright": "Copyright © 2026 Riviawolf",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "build/icon.ico",
+      "build/icon.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/ffmpeg",
+        "to": "ffmpeg",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Steam-Media-Viewer-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Steam Media Viewer",
+      "uninstallDisplayName": "Steam Media Viewer",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Riviawolf",
+        "repo": "Steam-Media-Viewer"
+      }
+    ]
   }
 }

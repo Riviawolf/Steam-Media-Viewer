@@ -8,6 +8,7 @@ const listeners = {
   'scan:status': new Set(),
   'clip:progress': new Set(),
   'library:updated': new Set(),
+  'update:progress': new Set(),
 };
 
 for (const channel of Object.keys(listeners)) {
@@ -46,6 +47,8 @@ contextBridge.exposeInMainWorld('api', {
 
   appVersion: () => ipcRenderer.invoke('app:version'),
   checkForUpdates: () => ipcRenderer.invoke('updates:check'),
+  downloadUpdate: () => ipcRenderer.invoke('updates:download'),
+  installUpdate: (file) => ipcRenderer.invoke('updates:install', file),
   openRepo: (path) => ipcRenderer.invoke('shell:openExternal', path),
 
   cacheStats: () => ipcRenderer.invoke('cache:stats'),
@@ -58,4 +61,5 @@ contextBridge.exposeInMainWorld('api', {
   onScanStatus: (fn) => subscribe('scan:status', fn),
   onClipProgress: (fn) => subscribe('clip:progress', fn),
   onLibraryUpdated: (fn) => subscribe('library:updated', fn),
+  onUpdateProgress: (fn) => subscribe('update:progress', fn),
 });

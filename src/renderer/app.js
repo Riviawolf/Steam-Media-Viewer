@@ -811,13 +811,19 @@ async function openSettings() {
     $('shot-suggestion').classList.add('hidden');
   }
 
-  // The path itself is only useful when troubleshooting, so it lives in the
-  // field rather than as another line of text.
-  $('ffmpeg-status').textContent = lib.hasFfmpeg
-    ? 'Found automatically.'
-    : 'Not found. Clips cannot be prepared for playback until ffmpeg is available.';
+  // Say which ffmpeg is in use and where it came from, since a bundled copy
+  // and one found on PATH behave differently if the system one changes.
+  const ffmpegWhere = {
+    bundled: 'Bundled with the app. Nothing to install.',
+    system: 'Found on your system PATH.',
+    custom: 'Using the folder set below.',
+    missing: 'Not found. Clips cannot be prepared for playback until ffmpeg is available.',
+  };
+  $('ffmpeg-status').textContent = ffmpegWhere[lib.ffmpegSource] || ffmpegWhere.missing;
+  $('ffmpeg-location').textContent = lib.ffmpeg || '';
+  $('ffmpeg-location').title = lib.ffmpeg || '';
   $('ffmpeg-path').title = lib.ffmpeg || '';
-  $('ffmpeg-path').placeholder = lib.hasFfmpeg ? lib.ffmpeg : 'Locate ffmpeg.exe';
+  $('ffmpeg-path').placeholder = lib.hasFfmpeg ? 'Leave empty to use the bundled copy' : 'Locate ffmpeg.exe';
 
   $('set-status').textContent = '';
 
@@ -856,6 +862,118 @@ function describeRelease(result) {
   }
 }
 
+/**
+ * Renders release notes as headings and bullets. Built from DOM nodes rather
+ * than markup, so nothing in a release body can inject into the page.
+ */
+function renderNotes(container, notes) {
+  container.textContent = '';
+  for (const entry of notes) {
+    const heading = document.createElement('h4');
+    heading.className = 'up-version';
+    heading.textContent = `Version ${entry.version}`;
+    container.append(heading);
+
+    let list = null;
+    let paragraph = [];
+
+    // Release bodies are hard-wrapped, so consecutive lines belong to the same
+    // paragraph and should reflow rather than break at the author's margin.
+    const flush = () => {
+      if (!paragraph.length) return;
+      const para = document.createElement('p');
+      para.textContent = paragraph.join(' ');
+      container.append(para);
+      paragraph = [];
+    };
+
+    for (const raw of String(entry.body || '').split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) {
+        flush();
+        list = null;
+        continue;
+      }
+
+      const bullet = /^[-*]\s+(.*)$/.exec(line);
+      if (bullet) {
+        flush();
+        if (!list) {
+          list = document.createElement('ul');
+          container.append(list);
+        }
+        const li = document.createElement('li');
+        li.textContent = bullet[1];
+        list.append(li);
+        continue;
+      }
+
+      // A wrapped continuation of the bullet above rather than a new paragraph.
+      if (list && !paragraph.length) {
+        const last = list.lastElementChild;
+        if (last) {
+          last.textContent = `${last.textContent} ${line}`;
+          continue;
+        }
+      }
+
+      list = null;
+      // Drop markdown heading markers; the text is what matters here.
+      paragraph.push(line.replace(/^#+\s*/, ''));
+    }
+    flush();
+  }
+}
+
+function fmtMB(bytes) {
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+}
+
+function showUpdatePrompt(result) {
+  const size = result.asset ? ` (${fmtMB(result.asset.size)})` : '';
+  $('up-summary').textContent = `Version ${result.latest} is available${size}`;
+  $('up-current').textContent = `Current version: ${result.current}`;
+  renderNotes($('up-notes'), result.notes || []);
+
+  $('up-progress').classList.add('hidden');
+  $('up-bar').style.width = '0%';
+  $('up-download').disabled = false;
+  $('up-download').textContent = result.asset ? 'Download' : 'Open release page';
+  $('update-overlay').classList.remove('hidden');
+}
+
+function closeUpdatePrompt() {
+  $('update-overlay').classList.add('hidden');
+}
+
+async function downloadAndInstall() {
+  const btn = $('up-download');
+  const update = state.update;
+
+  // No installer attached: fall back to the release page.
+  if (!update || !update.asset) {
+    if (update) window.api.openRepo(update.url || update.releasesUrl);
+    return;
+  }
+
+  btn.disabled = true;
+  $('up-later').disabled = true;
+  $('up-progress').classList.remove('hidden');
+  $('up-progress-text').textContent = 'Starting download…';
+
+  try {
+    const file = await window.api.downloadUpdate();
+    $('up-bar').style.width = '100%';
+    $('up-progress-text').textContent = 'Download complete, starting the installer…';
+    const started = await window.api.installUpdate(file.path);
+    if (!started) throw new Error('The installer could not be started.');
+  } catch (err) {
+    $('up-progress-text').textContent = `${(err && err.message) || err}`;
+    btn.disabled = false;
+    $('up-later').disabled = false;
+  }
+}
+
 async function checkUpdates({ quiet = false } = {}) {
   const status = $('update-status');
   const getBtn = $('open-release');
@@ -871,8 +989,10 @@ async function checkUpdates({ quiet = false } = {}) {
 
   state.update = result;
   if (result.status === 'available') {
-    getBtn.textContent = result.assetName ? 'Download installer' : 'Open release page';
     getBtn.classList.remove('hidden');
+    // On the launch check, put it in front of the user rather than leaving it
+    // buried in a settings screen they may never open.
+    if (quiet) showUpdatePrompt(result);
   } else {
     getBtn.classList.add('hidden');
   }
@@ -1159,9 +1279,21 @@ function wireEvents() {
     }
   });
 
+  // Same flow as the launch prompt rather than a second, different path.
   $('open-release').addEventListener('click', () => {
-    const url = state.update && (state.update.url || state.update.releasesUrl);
-    if (url) window.api.openRepo(url);
+    if (state.update && state.update.status === 'available') {
+      $('settings-overlay').classList.add('hidden');
+      showUpdatePrompt(state.update);
+    }
+  });
+
+  $('up-download').addEventListener('click', downloadAndInstall);
+  $('up-later').addEventListener('click', closeUpdatePrompt);
+
+  window.api.onUpdateProgress(({ fraction, received, total }) => {
+    $('up-bar').style.width = `${Math.round(fraction * 100)}%`;
+    $('up-progress-text').textContent =
+      `Downloading ${fmtMB(received)} of ${fmtMB(total)} (${Math.round(fraction * 100)}%)`;
   });
 
   $('cache-clear').addEventListener('click', async (e) => {
@@ -1180,14 +1312,16 @@ function wireEvents() {
     const playerOpen = !$('player-overlay').classList.contains('hidden');
     const shotOpen = !$('shot-overlay').classList.contains('hidden');
     const settingsOpen = !$('settings-overlay').classList.contains('hidden');
+    const updateOpen = !$('update-overlay').classList.contains('hidden');
 
     if (e.key === 'Escape') {
-      if (settingsOpen) $('settings-overlay').classList.add('hidden');
+      if (updateOpen) closeUpdatePrompt();
+      else if (settingsOpen) $('settings-overlay').classList.add('hidden');
       else if (playerOpen) closePlayer();
       else if (shotOpen) closeShot();
       return;
     }
-    if (settingsOpen) return;
+    if (settingsOpen || updateOpen) return;
 
     if (playerOpen) {
       const video = $('player');
