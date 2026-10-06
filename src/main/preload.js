@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('api', {
   exportClip: (clipId) => ipcRenderer.invoke('clip:export', clipId),
   screenshotThumb: (file) => ipcRenderer.invoke('screenshot:thumb', file),
   exportScreenshot: (file) => ipcRenderer.invoke('screenshot:export', file),
+  copyImage: (file) => ipcRenderer.invoke('clipboard:copyImage', file),
 
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (patch) => ipcRenderer.invoke('settings:set', patch),

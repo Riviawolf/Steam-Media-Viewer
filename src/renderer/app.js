@@ -103,6 +103,100 @@ function initialsFor(name) {
     .join('') || '?';
 }
 
+/* ---------------- context menu ---------------- */
+
+let toastTimer = null;
+
+/** Brief confirmation for actions with no visible result of their own. */
+function toast(message) {
+  const el = $('toast');
+  el.textContent = message;
+  el.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('hidden'), 2600);
+}
+
+function closeContextMenu() {
+  $('context-menu').classList.add('hidden');
+}
+
+/**
+ * @param {MouseEvent} event
+ * @param {Array<{label: string, run: Function} | 'separator'>} items
+ */
+function showContextMenu(event, items) {
+  event.preventDefault();
+  const menu = $('context-menu');
+  menu.textContent = '';
+
+  for (const item of items) {
+    if (item === 'separator') {
+      const hr = document.createElement('div');
+      hr.className = 'cm-separator';
+      menu.append(hr);
+      continue;
+    }
+    const button = document.createElement('button');
+    button.className = 'cm-item';
+    button.type = 'button';
+    button.setAttribute('role', 'menuitem');
+    button.textContent = item.label;
+    button.addEventListener('click', async () => {
+      closeContextMenu();
+      try {
+        await item.run();
+      } catch (err) {
+        toast(`${(err && err.message) || err}`);
+      }
+    });
+    menu.append(button);
+  }
+
+  // Show it before measuring, then keep it inside the window.
+  menu.classList.remove('hidden');
+  const { offsetWidth: w, offsetHeight: h } = menu;
+  const x = Math.min(event.clientX, window.innerWidth - w - 8);
+  const y = Math.min(event.clientY, window.innerHeight - h - 8);
+  menu.style.left = `${Math.max(8, x)}px`;
+  menu.style.top = `${Math.max(8, y)}px`;
+}
+
+function screenshotMenuItems(shot) {
+  return [
+    {
+      label: 'Copy to Clipboard',
+      run: async () => {
+        const res = await window.api.copyImage(shot.file);
+        toast(res.ok ? `Copied ${res.width} by ${res.height} image to the clipboard` : res.message);
+      },
+    },
+    {
+      label: 'Save As…',
+      run: async () => {
+        const res = await window.api.exportScreenshot(shot.file);
+        if (res.saved) toast('Screenshot saved');
+      },
+    },
+    'separator',
+    { label: 'Show in Explorer', run: () => window.api.reveal(shot.file) },
+  ];
+}
+
+function clipMenuItems(clip) {
+  return [
+    {
+      label: 'Export Video…',
+      run: async () => {
+        toast('Preparing the clip…');
+        const res = await window.api.exportClip(clip.id);
+        if (res.saved) toast('Clip exported');
+      },
+    },
+    'separator',
+    { label: 'Show in Explorer', run: () => window.api.reveal(clip.dir) },
+  ];
+}
+
 /* ---------------- preview size ---------------- */
 
 // Multipliers on --card-base, which both grids share. Index 2 is the default,
@@ -459,6 +553,7 @@ function renderRecordings() {
     const strip = gameStrip(clip);
     if (strip) card.append(strip);
     card.append(thumb, body);
+    card.addEventListener('contextmenu', (e) => showContextMenu(e, clipMenuItems(clip)));
     if (clip.playable) card.addEventListener('click', () => openPlayer(index));
     frag.append(card);
   });
@@ -547,6 +642,7 @@ function renderScreenshots() {
       frame.append(badge);
     }
     card.append(frame);
+    card.addEventListener('contextmenu', (e) => showContextMenu(e, screenshotMenuItems(shot)));
     card.addEventListener('click', () => openShot(index));
     frag.append(card);
     thumbObserver.observe(card);
@@ -1243,6 +1339,25 @@ function wireEvents() {
   });
 
   // Screenshot viewer
+  $('sh-img').addEventListener('contextmenu', (e) => {
+    const shot = sorted(state.media.screenshots)[state.shotIndex];
+    if (shot) showContextMenu(e, screenshotMenuItems(shot));
+  });
+  $('player').addEventListener('contextmenu', (e) => {
+    const clip = currentClips()[state.playingIndex];
+    if (clip) showContextMenu(e, clipMenuItems(clip));
+  });
+
+  // Dismissal: a click anywhere else, Escape, scrolling, or losing focus.
+  document.addEventListener('mousedown', (e) => {
+    // The target is not always an element, so check before calling closest.
+    const el = e.target instanceof Element ? e.target : null;
+    if (!el || !el.closest('#context-menu')) closeContextMenu();
+  });
+  document.addEventListener('scroll', closeContextMenu, true);
+  window.addEventListener('blur', closeContextMenu);
+  window.addEventListener('resize', closeContextMenu);
+
   $('sh-close').addEventListener('click', closeShot);
   $('sh-prev').addEventListener('click', () => stepShot(-1));
   $('sh-next').addEventListener('click', () => stepShot(1));
@@ -1326,6 +1441,7 @@ function wireEvents() {
     const updateOpen = !$('update-overlay').classList.contains('hidden');
 
     if (e.key === 'Escape') {
+      if (!$('context-menu').classList.contains('hidden')) { closeContextMenu(); return; }
       if (updateOpen) closeUpdatePrompt();
       else if (settingsOpen) $('settings-overlay').classList.add('hidden');
       else if (playerOpen) closePlayer();

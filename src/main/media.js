@@ -442,6 +442,24 @@ class MediaPipeline {
     }
   }
 
+  /**
+   * Full-size PNG copy of an image, for formats the clipboard cannot take
+   * directly. Returns null when no conversion is possible.
+   */
+  async asPng(file) {
+    if (!this.ffmpeg) return null;
+    const dest = path.join(this.tmpDir, `clip-copy-${shortHash(file)}.png`);
+    const staging = `${dest}.part.png`;
+    try {
+      await this.runFfmpeg(['-v', 'error', '-i', file, '-frames:v', '1', '-y', staging]);
+      await fsp.rename(staging, dest);
+      return dest;
+    } catch {
+      await fsp.rm(staging, { force: true }).catch(() => {});
+      return null;
+    }
+  }
+
   /** Extracts a still from a prepared clip, for clips with no thumbnail.jpg. */
   async clipPoster(clipId, mp4Path, atSeconds = 1) {
     const dest = path.join(this.thumbDir, `clip-${shortHash(clipId)}.jpg`);

@@ -83,6 +83,19 @@ Game names and artwork come from the local Steam install first
 store for anything missing. Lookups are cached and can be turned off in
 Settings. Shift-clicking Refresh re-resolves them.
 
+## Right-click
+
+| On a | |
+|---|---|
+| Screenshot | Copy to Clipboard, Save As, Show in Explorer |
+| Clip | Export Video, Show in Explorer |
+
+Copying works from the grid or the open viewer. Formats the clipboard cannot
+take directly, such as AVIF, are converted first.
+
+Exporting a clip prepares it if it is not already cached, then saves the MP4
+wherever you choose.
+
 ## Keyboard
 
 | Key | |

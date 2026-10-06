@@ -3,7 +3,7 @@
 // renderer plain data plus file:// URLs. The window is loaded from disk, so
 // media can be referenced directly as file:// - there is no local HTTP server.
 
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, clipboard, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -456,6 +456,26 @@ function registerIpc() {
     if (res.canceled || !res.filePath) return { saved: false };
     await fsp.copyFile(src, res.filePath);
     return { saved: true, path: res.filePath };
+  });
+
+  // Puts a screenshot on the clipboard. Electron's image loader handles PNG and
+  // JPEG; anything else (AVIF, for instance) is converted first.
+  ipcMain.handle('clipboard:copyImage', async (_e, file) => {
+    const known = library.screenshots.find((s) => s.file === file);
+    if (!known) return { ok: false, message: 'Screenshot not found' };
+
+    let image = nativeImage.createFromPath(file);
+    if (image.isEmpty()) {
+      const png = await media.asPng(file);
+      if (png) image = nativeImage.createFromPath(png);
+    }
+    if (image.isEmpty()) {
+      return { ok: false, message: 'This image format could not be read for the clipboard.' };
+    }
+
+    clipboard.writeImage(image);
+    const { width, height } = image.getSize();
+    return { ok: true, width, height };
   });
 
   ipcMain.handle('screenshot:export', async (_e, file) => {

@@ -7,7 +7,7 @@
 //   npx electron tools/dev-verify.js
 
 const path = require('path');
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, clipboard } = require('electron');
 
 require(path.join(__dirname, '..', 'src', 'main', 'main.js'));
 
@@ -297,6 +297,64 @@ app.whenReady().then(async () => {
   await sleep(900);
   const savedScale = await ev(`(async () => (await window.api.getSettings()).cardScale)()`);
   check('preview size persists', savedScale === 2, `cardScale=${savedScale}`);
+
+  // --- right-click menus ---
+  const openMenu = async (selector) => {
+    await ev(`(() => {
+      const c = document.querySelector('${selector}');
+      if (!c) return false;
+      const r = c.getBoundingClientRect();
+      c.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: r.left + 40, clientY: r.top + 40 }));
+      return true;
+    })()`);
+    await sleep(350);
+    return ev(`[...document.querySelectorAll('#context-menu .cm-item')].map(b => b.textContent)`);
+  };
+
+  await ev(`document.querySelector('.tab[data-tab="recordings"]').click()`);
+  await sleep(500);
+  const clipMenu = await openMenu('#pane-recordings .rec-card');
+  check(
+    'right-clicking a clip offers Export Video',
+    clipMenu.some((l) => /^Export Video/.test(l)),
+    clipMenu.join(' | '),
+  );
+
+  // Dismissal has to work, or the menu would stick around over everything.
+  await ev(`document.querySelector('#game-list').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`);
+  await sleep(250);
+  const dismissed = await ev(`document.querySelector('#context-menu').classList.contains('hidden')`);
+  check('the menu closes when you click elsewhere', dismissed);
+
+  await ev(`document.querySelector('.tab[data-tab="screenshots"]').click()`);
+  await sleep(2500);
+  const shotMenu = await openMenu('#pane-screenshots .shot-card');
+  check(
+    'right-clicking a screenshot offers Copy to Clipboard and Save As',
+    shotMenu.some((l) => /Copy to Clipboard/.test(l)) && shotMenu.some((l) => /^Save As/.test(l)),
+    shotMenu.join(' | '),
+  );
+  await ev(`document.querySelector('#context-menu').classList.add('hidden')`);
+
+  // Copying puts a real image on the clipboard, so keep whatever was there.
+  const heldText = clipboard.readText();
+  const copied = await ev(`(async () => {
+    const m = await window.api.mediaFor('__all__');
+    const shot = m.screenshots[0];
+    if (!shot) return { ok: false, message: 'no screenshots' };
+    return window.api.copyImage(shot.file);
+  })()`);
+  const onClipboard = clipboard.readImage();
+  check(
+    'Copy to Clipboard puts the image on the clipboard',
+    copied.ok && !onClipboard.isEmpty() && onClipboard.getSize().width === copied.width,
+    copied.ok ? `${copied.width}x${copied.height}` : copied.message,
+  );
+  clipboard.clear();
+  if (heldText) clipboard.writeText(heldText);
+
+  await ev(`document.querySelector('.tab[data-tab="recordings"]').click()`);
+  await sleep(500);
 
   // --- sort by length ---
   const durations = async () =>
@@ -623,23 +681,21 @@ app.whenReady().then(async () => {
   await ev(`document.querySelector('#set-close').click()`);
   await sleep(300);
 
-  // No em dashes in anything the user reads.
-  const dashes = await ev(`(() => {
-    const hits = [];
-    const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    while (walk.nextNode()) {
-      const t = walk.currentNode.textContent;
-      if (/[\\u2014\\u2013]/.test(t)) hits.push(t.trim().slice(0, 60));
-    }
-    for (const el of document.querySelectorAll('[placeholder], [title]')) {
-      for (const attr of ['placeholder', 'title']) {
-        const v = el.getAttribute(attr);
-        if (v && /[\\u2014\\u2013]/.test(v)) hits.push(attr + '="' + v.slice(0, 60) + '"');
-      }
-    }
-    return hits;
-  })()`);
-  check('no em dashes in the interface', dashes.length === 0, dashes.slice(0, 3).join(' | '));
+  // No em dashes in text this project authors. The DOM is not a safe place to
+  // check: game names come from Steam and some legitimately contain one.
+  const authored = ['src/renderer/index.html', 'src/renderer/app.js']
+    .flatMap((file) => {
+      const text = require('fs').readFileSync(require('path').join(__dirname, '..', file), 'utf8');
+      return text
+        .split(/\r?\n/)
+        .map((line, i) => ({ file, line: i + 1, text: line }))
+        .filter((l) => /[—–]/.test(l.text));
+    });
+  check(
+    'no em dashes in text this project writes',
+    authored.length === 0,
+    authored.slice(0, 3).map((l) => `${l.file}:${l.line}`).join(', '),
+  );
 
   // Restore the folder settings these checks seeded.
   await ev(`(async () => await window.api.setSettings({
